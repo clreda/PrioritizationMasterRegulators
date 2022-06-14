@@ -77,10 +77,22 @@ if (len(fname_ls)>0):
     print("#unique solutions %d / %d" % (sols.T.drop_duplicates().shape[0], nsol))
     print(sols)
     ## Frequency of interactions
-    perc_influences_df = sum([np.abs(solution2influences(sols[c])) for c in sols.columns])/nsol
-    plt.histogram(perc_influences_df.values.flatten())
+    perc_influences_df = sum([np.abs(solution2influences(sols[c])) for c in sols.columns])
+    perc_influences_df_ = perc_influences_df.copy()
+    perc_influences_df_["index"] = perc_influences_df_.index
+    perc_influences_df_ = perc_influences_df_.melt(id_vars=["index"])
+    perc_influences_df_ = perc_influences_df_.loc[perc_influences_df_["value"]>0]
+    plt.figure(figsize=(8,3))
+    plt.hist(list(perc_influences_df_["value"]), bins=nsol, alpha=0.7, color="red")
+    plt.plot(range(1,nsol+1), [perc_influences_df_.loc[perc_influences_df_["value"]>=x].shape[0] for x in range(1,nsol+1)], "k+")
+    plt.xlim(1,nsol)
+    plt.xticks(range(1,nsol+1), rotation=90)
+    plt.xlabel("N Number of solutions")
+    plt.ylabel("Number of interactions present\n(at least) N times across %d solutions" % nsol)
     plt.savefig(plot_folder+"histogram_interactions.png",bbox_inches="tight")
     plt.close()
+    ##
+    perc_influences_df = perc_influences_df/nsol
     thres_perc=1
     rows_genes=perc_influences_df.sum(axis=1).loc[perc_influences_df.sum(axis=1)>thres_perc].index
     cols_genes=perc_influences_df.sum(axis=0).loc[perc_influences_df.sum(axis=0)>thres_perc].index
