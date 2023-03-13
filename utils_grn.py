@@ -611,16 +611,27 @@ def get_trivial_solution(R, dtype):
 
 #' @param R DataFrame columns = solutions, rows = GRFs
 #' @return degrees of all genes for each solution
-def get_degrees(R, dtype="all"):
+def get_degrees(R, dtype="all", weighted=False):
     assert dtype in ["all", "in", "out"]
     degrees = np.zeros(R.shape)
+    if (weighted):
+        ## STRING combined score
+        STRING_score = pd.read_csv(file_folder+"network_score.tsv", sep="\t")
+        STRING_score = STRING_score[["preferredName_A","preferredName_B","score"]]
+        STRING_score = STRING_score.drop_duplicates(keep="first")
+        STRING_score.index = ["--".join(list(sorted(list(STRING_score.loc[x][["preferredName_A","preferredName_B"]])))) for x in STRING_score.index]
+        STRING_score = STRING_score["score"]
     for ic, col in enumerate(R.columns):
         grfs = get_grfs_from_solution(R[col])
         for k in grfs:
-            if (dtype in ["all", "in"]):
-                degrees[list(R.index).index(k), ic] += len(grfs[k])
+            if (weighted):
+                weights_k = [float(STRING_score.loc["--".join(list(sorted([r,k])))]) for r in grfs[k]]
+            if (dtype in ["all","in"]):
+                degrees[list(R.index).index(k), ic] += sum(weights_k) if (weighted) else len(grfs[k])
             if (dtype in ["all", "out"]):
-                degrees[[list(R.index).index(r) for r in grfs[k]], ic] += 1
+                #for ir, r in enumerate(grfs[k]):
+                #    degrees[list(R.index).index(r), ic] += weights_k[ir] if (weighted) else 1
+                degrees[[list(R.index).index(r) for r in grfs[k]], ic] += np.array([1]*len(grfs[k]) if (weighted) else weights_k)
     return pd.DataFrame(degrees, index=R.index, columns=R.columns)
 
 #' @param R DataFrame columns = solutions, rows = GRFs

@@ -26,6 +26,8 @@ cmd = "cd "+root_folder+" && file $(ls | grep '.zip') | grep 'Zip archive data' 
 fname_ls = sb.check_output(cmd,shell=True).decode("utf-8").split("\n")[:-1]
 fname_ls = list(sorted([root_folder+x for x in fname_ls], key=lambda x: int(x.split(".zip")[0].split("_")[-1])))
 
+weighted=False
+
 if (len(fname_ls)>0):
     degrees_ls = []
     edges_ls = []
@@ -38,8 +40,8 @@ if (len(fname_ls)>0):
             cols = list(range(nsol,nsol+nb_sol))
             nsol = np.max(cols)+1
             sol_ls.append(pd.DataFrame(solutions.T.values, index=solutions.columns, columns=cols))
-            degrees = get_degrees(solutions.T)
-            degrees_out = get_degrees(solutions.T, dtype="out")
+            degrees = get_degrees(solutions.T, weighted=weighted)
+            degrees_out = get_degrees(solutions.T, dtype="out", weighted=weighted)
             edges = pd.DataFrame(degrees.sum(axis=0), index=degrees.columns, columns=["It. #%d" % int(fname.split("_")[-1].split(".zip")[0])])
             edges_ls.append(edges)
             degrees = pd.DataFrame(degrees.mean(axis=1), index=degrees.index, columns=["It. #%d" % int(fname.split("_")[-1].split(".zip")[0])])
@@ -57,8 +59,8 @@ if (len(fname_ls)>0):
         plt.figure(figsize=(4,3))
     degrees_df.boxplot(rot=90)
     plt.xlabel("Solution ID")
-    plt.ylabel("Node degree")
-    plt.savefig(plot_folder+"avg_degree_boxplot.png", bbox_inches="tight")
+    plt.ylabel("Weighted node degree" if (weighted) else "Node degree")
+    plt.savefig(plot_folder+"avg_degree_boxplot"+("_weighted" if (weighted) else "")+".png", bbox_inches="tight")
     plt.close()
     ## Plot number of edges across iterations
     edges_df = edges_ls[0].join(edges_ls[1:], how="outer")
@@ -66,8 +68,8 @@ if (len(fname_ls)>0):
     edges_df.index = [""]
     plt.figure(figsize=(1,3))
     edges_df.T.boxplot(rot=90)
-    plt.ylabel("Edge number")
-    plt.savefig(plot_folder+"edge_number_boxplot.png", bbox_inches="tight")
+    plt.ylabel("Weighted edge number" if (weighted) else "Edge number")
+    plt.savefig(plot_folder+"edge_number_boxplot"+("weighted" if (weighted) else "")+".png", bbox_inches="tight")
     plt.close()
     ## All solutions
     sols = sol_ls[0].join(sol_ls[1:], how="outer")
@@ -75,7 +77,22 @@ if (len(fname_ls)>0):
     print("#unique solutions %d / %d" % (sols.T.drop_duplicates().shape[0], nsol))
     print(sols)
     ## Frequency of interactions
-    perc_influences_df = sum([np.abs(solution2influences(sols[c])) for c in sols.columns])/nsol
+    perc_influences_df = sum([np.abs(solution2influences(sols[c])) for c in sols.columns])
+    perc_influences_df_ = perc_influences_df.copy()
+    perc_influences_df_["index"] = perc_influences_df_.index
+    perc_influences_df_ = perc_influences_df_.melt(id_vars=["index"])
+    perc_influences_df_ = perc_influences_df_.loc[perc_influences_df_["value"]>0]
+    plt.figure(figsize=(8,3))
+    plt.hist(list(perc_influences_df_["value"]), bins=nsol, alpha=0.7, color="red")
+    plt.plot(range(1,nsol+1), [perc_influences_df_.loc[perc_influences_df_["value"]>=x].shape[0] for x in range(1,nsol+1)], "k+")
+    plt.xlim(1,nsol)
+    plt.xticks(range(1,nsol+1), rotation=90)
+    plt.xlabel("N Number of solutions")
+    plt.ylabel("Number of interactions present\n(at least) N times across %d solutions" % nsol)
+    plt.savefig(plot_folder+"histogram_interactions.png",bbox_inches="tight")
+    plt.close()
+    ##
+    perc_influences_df = perc_influences_df/nsol
     thres_perc=1
     rows_genes=perc_influences_df.sum(axis=1).loc[perc_influences_df.sum(axis=1)>thres_perc].index
     cols_genes=perc_influences_df.sum(axis=0).loc[perc_influences_df.sum(axis=0)>thres_perc].index

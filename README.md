@@ -1,5 +1,7 @@
 # Prioritization of master regulators through a Boolean network
-(c) Clémence Réda, 2022.
+(c) Clémence Réda, 2023.
+
+Due to the presence of copyrighted databases, the license for this code is [Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)](https://creativecommons.org/licenses/by-nc-sa/4.0/).
 
 ## Environment
 

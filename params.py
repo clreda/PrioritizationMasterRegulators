@@ -24,7 +24,8 @@ taxon_id=9606 # human
 ## List of HUGO gene symbols (one / line) 
 path_to_genes = dataset_folder+"S1_Delahayeetal2016_M30genes.txt"
 path_to_initial_states = dataset_folder+"EMTAB3123.csv"
-name = "refractory_epilepsy"
+
+name = "BreastCancer/"#"Epilepsy"
 ###############################################################
 
 file_folder = root_folder+name+"/FILES/"
@@ -79,8 +80,8 @@ maboss_params = {
 }
 
 im_params = {
-    "k":1, #*TO CHANGE*
-    "njobs": min(5,njobs),
+    "k":1, #*TO CHANGE if needed*
+    "njobs": njobs,
     "state_window": 100,
     "method": "greedy",
 }

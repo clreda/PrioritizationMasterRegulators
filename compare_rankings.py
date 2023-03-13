@@ -239,7 +239,8 @@ ffsize=35
 ###ffsize=47
 res = pd.concat(tuple([x.loc[all_genes] for x in all_rankings]), axis=1)
 M = res.corr(method=method)
-M.columns = ["Control\nCentrality","Outdegree","Spread","pLI","EDS","-RVIS","Influence"]
+M.columns = ["Control\nCentrality", "Outgoing", "Spread", "pLI", "EDS", "-RVIS", "TIF"]
+#M.columns = ["Control\nCentrality","Outdegree","Spread","pLI","EDS","-RVIS","Influence"]
 ##M.columns = ["Control\nCentrality","Degree","Outdegree","Spread","pLI"]
 ###M.columns = ["Control\nCentrality","Influence","pLI","-RVIS"]
 M.index = M.columns

@@ -150,30 +150,56 @@ def greedy(network_name, k, genes=None, states=None, ncpus=1, sublist=None, stat
 ## Application to epilepsy ##
 #############################
 
+from subprocess import call as sbcall
+
 if (__name__=="__main__"):
+    if (not os.path.exists(path_to_initial_states)): ##
+        raise ValueError("File does not exists.")
     ## Solution to test for master regulator detection
-    fname_ls = glob(solution_folder+"solution.bnet")
+    fname_ls = glob(solution_folder+"solution.bnet") ##
+
     assert len(fname_ls)>0
-    grn_fname = fname_ls[0]
     grn_fname_reformat = "influence_maximization/"+grn_fname.split("/")[-1]
     sb.call("mkdir -p influence_maximization/", shell=True)
     sb.call("sed 's/ <- /, /g' "+grn_fname+" > "+grn_fname_reformat, shell=True)
     ## Get M30 genes
     with open(grn_fname, "r") as f:
-         genes = [x.split(" <- ")[0] for x in f.read().split("\n")[:-1]]
+         genes = [x.split(" <- ")[0] for x in f.read().split("\n") if (len(x)>0)] ##
+
     ## epileptic hippocampi (private communication of normalized count matrix from the raw count data in ArrayExpress)
-    if (not os.path.exists(path_to_initial_states)):
-        raise ValueError("File does not exists.")
     ## mat: normalized gene expression matrix (rows=genes, columns=samples)
-    mat = pd.read_csv(path_to_initial_states, index_col=0)
     mat = mat.loc[~mat.index.duplicated()]
     ## Aggregate and binarize initial state
     from utils_state import binarize_experiments
     bin_mat = binarize_experiments(mat, thres=0.5, method="binary")
+    bin_mat = bin_mat.dropna() 
     states = bin_mat.astype(int)
+
+    genes = [g for g in genes if (g in states.index)]
     states.columns = range(states.shape[1])
     ## If you wanted to run this on a strict subset of genes
     sublist = None
     state_len = states.shape[1]
-    S, spreads = eval(method)(grn_fname_reformat, k=k, sublist=sublist, ncpus=njobs, states=states)
-    sb.call("rm -rf influence_maximization/", shell=True)
+    res_ls = glob(file_folder+"res/values_state=*.csv")
+    start = 0 if (len(res_ls)==0) else np.max([int(l.split("state=")[-1].split(".csv")[0]) for l in res_ls])+1
+    ## for k=1
+    for istate in range(start,state_len):
+        state = states[[istate]]
+        state.columns = [0]
+        S, spreads = eval(method)(grn_fname, k=k, sublist=sublist, ncpus=njobs, states=state)
+        sbcall("mkdir -p "+file_folder+"res/", shell=True)
+        sbcall("mv "+file_folder+"spread_values.csv "+file_folder+"res/values_state=%d.csv" % istate, shell=True)
+        sbcall("rm -f "+file_folder+"spread_values.rnk "+file_folder+"application_regulators.csv", shell=True)
+    res_ls = glob(file_folder+"res/values_state=*.csv")
+    df_list = [pd.read_csv(fname, index_col=0) for fname in glob(file_folder+"res/values_state=*.csv")]
+    for idf, df in enumerate(df_list):
+        df.columns = [idf]
+    df = df_list[0].join(df_list[1:], how="outer").dropna().T
+    df_all = pd.DataFrame(df.apply(lambda x: gmean([d+1 for d in list(x)])-1).T, columns=[1])
+    df_all.to_csv(file_folder+"spread_values.csv")
+    df_all.sort_values(by=1,ascending=False).to_csv(file_folder+"spread_values.rnk", sep="\t", header=None)
+    inS = list(map(int,np.argwhere(np.array(list(df_all[1]))==df_all.max().max())))
+    S = str([[idf for i, idf in enumerate(df_all.index) if (i in inS)]])
+    res_all = pd.DataFrame([[df_all.max().max()]], index=["SpreadValue"], columns=[S])
+    res_all.to_csv(file_folder+"application_regulators.csv")
+    sb.call("rm -rf "file_folder+"res/ influence_maximization/", shell=True)
